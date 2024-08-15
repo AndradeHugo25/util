@@ -9,7 +9,7 @@ import java.util.*;
 
 import static system.hooks.Hooks.googlePages;
 
-public class TrelloCore {
+public class TrelloEngine {
 
     public static final SimpleDateFormat formatoSemAno = new SimpleDateFormat("dd/MM");
     public static final SimpleDateFormat formatoComAno = new SimpleDateFormat("dd/MM/yyyy");

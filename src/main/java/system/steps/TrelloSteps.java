@@ -4,8 +4,8 @@ import io.cucumber.java.pt.Dado;
 import io.cucumber.java.pt.E;
 import io.cucumber.java.pt.Então;
 import io.cucumber.java.pt.Quando;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
+import system.core.TrelloLogin;
 import system.map.Urls;
 import system.model.TrelloGrupo;
 
@@ -16,25 +16,37 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static system.hooks.Hooks.*;
-import static system.core.TrelloCore.*;
+import static system.core.TrelloEngine.*;
 
 public class TrelloSteps {
 
     @Dado("que o usuário esteja logado")
     public void logar() {
-        driver.get(Urls.TRELLO_LOGIN.getUrl());
-        trelloPages.botaoContinuarGoogle.click();
-        trelloPages.campoLogin.sendKeys(loginCenario);
-        trelloPages.botaoAvancarLogin.click();
-        trelloPages.getSenha().sendKeys(senhaCenario);
-        WebElement next = trelloPages.getBotaoAvancarSenha();
-        web.clickWithJSExecutor(next);
+        if (!TrelloLogin.isLogado()) {
+            TrelloLogin.realizarLogin();
+        }
     }
 
     @Dado("acesse o board {string}")
     public void acessarBoard(String tituloBoard) {
-        WebElement board = trelloPages.getBoard(tituloBoard);
-        board.click();
+        String[] partesTitulo = tituloBoard.split(" ");
+        if (!driver.getCurrentUrl().contains(partesTitulo[0].toLowerCase())) {
+            WebElement board = trelloPages.getBoard(tituloBoard);
+            board.click();
+        }
+    }
+
+    @E("acesse a task {string}")
+    public void acesseATask(String nomeTask) throws Exception {
+        trelloPages.getTask(nomeTask).click();
+    }
+
+    @Quando("desmarcar todos os itens")
+    public void desmarcarTodosOsItens() {
+    }
+
+    @Então("o sistema confirma ação")
+    public void oSistemaConfirmaAcao() {
     }
 
     @E("capture a lista dos cards da coluna {string}")

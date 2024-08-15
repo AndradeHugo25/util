@@ -1,11 +1,15 @@
 package system.tools.database;
 
 import lombok.Data;
+import system.tools.configuration.Windows;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Properties;
+
+import static system.tools.database.ConexaoBD.Tipos.UUID;
 
 @Data
 public class ConexaoBD {
@@ -20,31 +24,61 @@ public class ConexaoBD {
     }
 
     public enum Tipos {
-        VARCHAR, INTEGER, DECIMAL, TIME_STAMP, BOOL, DATE, NULL
+        VARCHAR, INTEGER, DECIMAL, TIME_STAMP, BOOL, DATE, NULL, UUID
     }
 
     public void conectarBanco() throws Exception {
-        String urlJdbc = "jdbc:postgresql://34.171.27.115:5432/postgres";
+        String ambiente = (String) properties.get("ambiente");
         String usuarioBD = "";
         String senhaBD = "";
-        String ambiente = (String) properties.get("ambienteBanco");
+        String urlJdbc = "";
+        System.out.println("[BANCO] Conectando base de dados em " + ambiente + "...");
 
         if (ambiente.equalsIgnoreCase("TESTE") || ambiente.equalsIgnoreCase("TST")) {
             usuarioBD = properties.getProperty("userPostgreTst");
             senhaBD = properties.getProperty("passworPostgreTst");
+            urlJdbc = (String) properties.get("urlJdbcTst");
         } else if (ambiente.equalsIgnoreCase("DESENV") || ambiente.equalsIgnoreCase("DEV")) {
             usuarioBD = properties.getProperty("userPostgreDev");
             senhaBD = properties.getProperty("passworPostgreDev");
+            urlJdbc = (String) properties.get("urlJdbcDev");
         }
 
         connection = DriverManager.getConnection(urlJdbc, usuarioBD, senhaBD);
+        System.out.println("[BANCO] Base de dados conectada com sucesso");
+    }
+
+    public void desconectarBanco() throws Exception {
+        connection.close();
+        System.out.println("[BANCO] Base de dados desconectada");
+    }
+
+    public void conectarTunel() throws Exception {
+        System.out.println("[TÚNEL] Conectando túnel...");
+        String pathContentTunel = properties.getProperty("pathContentTunel");
+        File file = new File(pathContentTunel);
+        String absolutePath = file.getAbsolutePath();
+        String comando = properties.getProperty("comandoAbertura");
+        String[] partesRetornoSucesso = {properties.getProperty("conexaoSucesso"), properties.getProperty("jaConectado")};
+        try {
+            Process processo = Windows.executarComandoPrompt(absolutePath, comando);
+            Windows.verificaExecucaoProcesso(processo, partesRetornoSucesso);
+        } catch (Exception e) {
+            Windows.finalizarProcesso("kubectl.exe");
+            throw e;
+        }
+    }
+
+    public void fecharTunel() throws Exception {
+        Windows.finalizarProcesso("kubectl.exe");
+        System.out.println("[TÚNEL] Túnel desconectado!");
     }
 
     private PreparedStatement setarParametros(PreparedStatement statement, String[] valores, Tipos[] tipos) throws SQLException {
         int param = 1;
         for (Tipos tipo : tipos) {
             switch (tipo) {
-                case VARCHAR -> statement.setString(param, valores[param - 1]);
+                case UUID, VARCHAR -> statement.setString(param, valores[param - 1]);
                 case INTEGER -> statement.setInt(param, Integer.parseInt(valores[param - 1]));
                 case DECIMAL -> statement.setBigDecimal(param, new BigDecimal(valores[param - 1]));
                 case TIME_STAMP -> statement.setTimestamp(param, Timestamp.valueOf(valores[param - 1]));
@@ -55,6 +89,16 @@ public class ConexaoBD {
             param++;
         }
         return statement;
+    }
+
+    private String getQueryTratada(String query, Tipos[] tipos) {
+        int index = -1;
+        for (Tipos tipo : tipos) {
+            index = query.indexOf("?", index + 1);
+            if (tipo == UUID) {
+                query = query.substring(0, index + 1) + "::uuid" + query.substring(index + 1);
+            }
+        } return query;
     }
 
 //    public void conectarBancoMySql(Properties properties, String ambiente) throws Exception {
@@ -83,9 +127,7 @@ public class ConexaoBD {
 //        connection = DriverManager.getConnection(urlJdbc, usuarioBD, senhaBD);
 //    }
 
-    public void desconectarBanco() throws Exception {
-        connection.close();
-    }
+
 
     public Connection getConnection() {
         return connection;
@@ -159,7 +201,8 @@ public class ConexaoBD {
     }
 
     public void update(String[] valores, Tipos[] tipos, String query) throws SQLException {
-        stmt = connection.prepareStatement(query);
+        String queryTratada = getQueryTratada(query, tipos);
+        stmt = connection.prepareStatement(queryTratada);
         stmt = setarParametros(stmt, valores, tipos);
         stmt.executeUpdate();
         stmt.close();
@@ -177,7 +220,8 @@ public class ConexaoBD {
 
     //-----------------------SELECT----------------------------------------------------------------------------
     public ResultSet select(String[] valores, Tipos[] tipos, String query) throws SQLException {
-        stmt = connection.prepareStatement(query);
+        String queryTratada = getQueryTratada(query, tipos);
+        stmt = connection.prepareStatement(queryTratada);
         stmt = setarParametros(stmt, valores, tipos);
         resultado = stmt.executeQuery();
         return resultado;

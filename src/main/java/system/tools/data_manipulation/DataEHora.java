@@ -45,6 +45,18 @@ public class DataEHora {
         return strDate;
     }
 
+    public static String addMinutosData(String formato, String data, int minutos) throws ParseException {
+        SimpleDateFormat formatter = new SimpleDateFormat(formato);
+        Date date = formatter.parse(data);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        calendar.add(Calendar.MINUTE, minutos);
+
+        String strDate = formatter.format(calendar.getTime());
+        return strDate;
+    }
+
     public static String addDiasTimeStamp(String data, int dias) {
         Timestamp timestamp = Timestamp.valueOf(data);
         Calendar cal = Calendar.getInstance();
